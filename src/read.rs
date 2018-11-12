@@ -11,6 +11,8 @@ use std::sync::atomic;
 use std::sync::atomic::AtomicPtr;
 use std::sync::{self, Arc};
 
+use shallow_copy::ShallowCopy;
+
 /// A handle that may be used to read from the eventually consistent map.
 ///
 /// Note that any changes made to the map will not be made visible until the writer calls
@@ -47,6 +49,22 @@ where
             epoch: epoch,
             my_epoch: atomic::AtomicUsize::new(0),
             inner: sync::Arc::clone(&self.inner),
+            _not_sync_no_feature: PhantomData,
+        }
+    }
+}
+
+impl<K, V, M, S> ShallowCopy for ReadHandle<K, V, M, S>
+where
+    K: Eq + Hash,
+    S: BuildHasher,
+    M: Clone,
+{
+    unsafe fn shallow_copy(&mut self) -> Self {
+        ReadHandle {
+            epoch: self.epoch.shallow_copy(),
+            my_epoch: atomic::AtomicUsize::new(*self.my_epoch.get_mut()),
+            inner: self.inner.shallow_copy(),
             _not_sync_no_feature: PhantomData,
         }
     }
